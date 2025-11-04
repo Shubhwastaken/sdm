@@ -1,0 +1,34 @@
+environment:
+  num_classes: 10
+  num_teachers: 5
+  num_rooms: 3
+  max_disruptions: 5
+  disruption_probability: 0.2
+
+agents:
+  mdp:
+    discount_factor: 0.9
+    learning_rate: 0.1
+    exploration_rate: 0.1
+  rl:
+    discount_factor: 0.99
+    learning_rate: 0.001
+    exploration_strategy: epsilon_greedy
+    epsilon: 1.0
+
+simulation:
+  num_episodes: 200
+  max_steps_per_episode: 50
+  log_interval: 20
+  save_model: true
+  model_save_path: "models/rl_agent_model.pkl"
+
+disruptions:
+  types:
+    - teacher_absence
+    - facility_conflict
+    - enrollment_change
+  severity_levels:
+    - low
+    - medium
+    - high

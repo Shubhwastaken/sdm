@@ -1,0 +1,52 @@
+{
+  "schedules": [
+    {
+      "id": 1,
+      "name": "Morning Shift",
+      "time_slots": [
+        {
+          "start": "08:00",
+          "end": "09:00",
+          "activity": "Math Class",
+          "teacher": "Mr. Smith"
+        },
+        {
+          "start": "09:00",
+          "end": "10:00",
+          "activity": "Science Class",
+          "teacher": "Ms. Johnson"
+        },
+        {
+          "start": "10:00",
+          "end": "11:00",
+          "activity": "History Class",
+          "teacher": "Mr. Brown"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Afternoon Shift",
+      "time_slots": [
+        {
+          "start": "13:00",
+          "end": "14:00",
+          "activity": "Physical Education",
+          "teacher": "Ms. Davis"
+        },
+        {
+          "start": "14:00",
+          "end": "15:00",
+          "activity": "Art Class",
+          "teacher": "Mr. Wilson"
+        },
+        {
+          "start": "15:00",
+          "end": "16:00",
+          "activity": "Music Class",
+          "teacher": "Ms. Taylor"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+.app-container {
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+.app-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.app-header h1 {
+  font-size: 32px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.app-header p {
+  font-size: 16px;
+  opacity: 0.95;
+}
+
+.error-banner {
+  background: #FEE2E2;
+  color: #991B1B;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.error-banner button {
+  background: transparent;
+  color: #991B1B;
+  padding: 4px 12px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.main-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 20px;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.welcome-screen {
+  text-align: center;
+  padding: 60px 40px;
+}
+
+.welcome-screen h2 {
+  color: #1F2937;
+  margin-bottom: 16px;
+  font-size: 28px;
+}
+
+.welcome-screen > p {
+  color: #6B7280;
+  margin-bottom: 40px;
+  font-size: 16px;
+}
+
+.feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  text-align: left;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.feature-item {
+  display: flex;
+  gap: 16px;
+  align-items: start;
+  padding: 20px;
+  border-radius: 12px;
+  background: #F9FAFB;
+  transition: transform 0.3s ease;
+}
+
+.feature-item:hover {
+  transform: translateX(4px);
+  background: #F3F4F6;
+}
+
+.feature-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.feature-item h3 {
+  color: #1F2937;
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+
+.feature-item p {
+  color: #6B7280;
+  font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+  }
+}
