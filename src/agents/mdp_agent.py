@@ -13,7 +13,8 @@ class MDPAgent:
         self.config = config
         self.discount_factor = config.get('discount_factor', 0.9)
         self.learning_rate = config.get('learning_rate', 0.1)
-        self.exploration_rate = config.get('exploration_rate', 0.1)
+        # Support both 'epsilon' and 'exploration_rate' for consistency
+        self.exploration_rate = config.get('epsilon', config.get('exploration_rate', 0.1))
         
         # Value function and policy
         self.value_table = defaultdict(float)
@@ -26,6 +27,9 @@ class MDPAgent:
         # Reward model
         self.rewards = defaultdict(lambda: defaultdict(float))
         self.reward_counts = defaultdict(lambda: defaultdict(int))
+        
+        # Step counter for periodic value iteration
+        self._step_counter = 0
     
     def select_action(self, state):
         """
@@ -37,29 +41,46 @@ class MDPAgent:
         Returns:
             int: Selected action
         """
-        # Get valid actions from environment
-        valid_actions = self.env.get_valid_actions()
-        
-        if not valid_actions:
-            # No valid actions, return random action
+        try:
+            # Get valid actions from environment
+            valid_actions = self.env.get_valid_actions()
+            
+            if not valid_actions:
+                # No valid actions, return random action
+                return np.random.randint(0, self.env.action_space_size)
+            
+            # Epsilon-greedy exploration
+            if np.random.random() < self.exploration_rate:
+                # Explore: random valid action
+                return np.random.choice(valid_actions)
+            else:
+                # Exploit: best action according to value function
+                state_key = self._state_to_key(state)
+                
+                if state_key not in self.policy or self.policy[state_key] not in valid_actions:
+                    # If no policy or policy action is invalid, choose best valid action
+                    action_values = []
+                    for action in valid_actions:
+                        try:
+                            value = self._get_action_value(state_key, action)
+                            action_values.append((action, value))
+                        except Exception as e:
+                            print(f"Error getting action value: {e}")
+                            action_values.append((action, 0.0))
+                    
+                    if action_values:
+                        best_action = max(action_values, key=lambda x: x[1])[0]
+                        return best_action
+                    else:
+                        return np.random.choice(valid_actions)
+                
+                return self.policy[state_key]
+        except Exception as e:
+            print(f"Error in select_action: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to random action
             return np.random.randint(0, self.env.action_space_size)
-        
-        # Epsilon-greedy exploration
-        if np.random.random() < self.exploration_rate:
-            # Explore: random valid action
-            return np.random.choice(valid_actions)
-        else:
-            # Exploit: best action according to value function
-            state_key = self._state_to_key(state)
-            
-            if state_key not in self.policy or self.policy[state_key] not in valid_actions:
-                # If no policy or policy action is invalid, choose best valid action
-                action_values = [(action, self._get_action_value(state_key, action)) 
-                                for action in valid_actions]
-                best_action = max(action_values, key=lambda x: x[1])[0]
-                return best_action
-            
-            return self.policy[state_key]
     
     def _get_action_value(self, state_key, action):
         """Calculate Q-value for state-action pair"""
@@ -74,6 +95,31 @@ class MDPAgent:
             expected_value += prob * self.value_table[next_state_key]
         
         return expected_reward + self.discount_factor * expected_value
+    
+    def learn(self, state, action, reward, next_state, done=False):
+        """
+        Learn from experience (alias for update method for consistency with RLAgent).
+        
+        Args:
+            state: Current state
+            action: Action taken
+            reward: Reward received
+            next_state: Next state
+            done: Whether episode is done
+        """
+        try:
+            self.update(state, action, reward, next_state, done)
+            
+            # Periodically run value iteration to improve policy
+            # Run value iteration every 50 steps (less frequent to avoid hanging)
+            self._step_counter += 1
+            if self._step_counter % 50 == 0:
+                # Run lightweight value iteration
+                self.value_iteration(max_iterations=3, theta=0.1)
+        except Exception as e:
+            print(f"Error in MDP learn: {e}")
+            import traceback
+            traceback.print_exc()
     
     def update(self, state, action, reward, next_state, done):
         """
@@ -110,33 +156,47 @@ class MDPAgent:
             max_iterations: Maximum number of iterations
             theta: Convergence threshold
         """
-        for iteration in range(max_iterations):
-            delta = 0
-            
-            # Update value for all visited states
-            for state_key in list(self.value_table.keys()):
-                if not self.transitions[state_key]:
-                    continue
+        try:
+            for iteration in range(max_iterations):
+                delta = 0
                 
-                old_value = self.value_table[state_key]
+                # Update value for all visited states
+                states_to_update = list(self.value_table.keys())
+                if not states_to_update:
+                    # No states yet, skip value iteration
+                    return
                 
-                # Compute max Q-value over all actions
-                action_values = []
-                for action in self.transitions[state_key].keys():
-                    q_value = self._get_action_value(state_key, action)
-                    action_values.append((action, q_value))
-                
-                if action_values:
-                    best_action, best_value = max(action_values, key=lambda x: x[1])
-                    self.value_table[state_key] = best_value
-                    self.policy[state_key] = best_action
+                for state_key in states_to_update:
+                    if not self.transitions[state_key]:
+                        continue
                     
-                    delta = max(delta, abs(old_value - best_value))
-            
-            # Check convergence
-            if delta < theta:
-                print(f"Value iteration converged after {iteration + 1} iterations")
-                break
+                    old_value = self.value_table[state_key]
+                    
+                    # Compute max Q-value over all actions
+                    action_values = []
+                    for action in self.transitions[state_key].keys():
+                        try:
+                            q_value = self._get_action_value(state_key, action)
+                            action_values.append((action, q_value))
+                        except Exception as e:
+                            print(f"Error computing Q-value for state {state_key}, action {action}: {e}")
+                            continue
+                    
+                    if action_values:
+                        best_action, best_value = max(action_values, key=lambda x: x[1])
+                        self.value_table[state_key] = best_value
+                        self.policy[state_key] = best_action
+                        
+                        delta = max(delta, abs(old_value - best_value))
+                
+                # Check convergence
+                if delta < theta:
+                    # print(f"Value iteration converged after {iteration + 1} iterations")
+                    break
+        except Exception as e:
+            print(f"Error in value_iteration: {e}")
+            import traceback
+            traceback.print_exc()
     
     def policy_evaluation(self, max_iterations=100):
         """Evaluate current policy"""

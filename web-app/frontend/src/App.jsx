@@ -10,6 +10,10 @@ import './App.css';
 
 const API_BASE = 'http://localhost:8000';
 
+// Configure axios defaults
+axios.defaults.timeout = 15000; // 15 second default timeout
+axios.defaults.headers.post['Content-Type'] = 'application/json';
+
 function App() {
   const [simId, setSimId] = useState(null);
   const [simulationState, setSimulationState] = useState(null);
@@ -20,7 +24,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showResults, setShowResults] = useState(false);
-  const [maxSteps] = useState(200);
   
   const autoPlayInterval = useRef(null);
   const wsRef = useRef(null);
@@ -30,11 +33,15 @@ function App() {
     setLoading(true);
     setError(null);
     try {
+      console.log('Creating simulation with config:', config);
       const response = await axios.post(`${API_BASE}/simulation/create`, config);
+      console.log('Simulation created:', response.data);
       setSimId(response.data.sim_id);
       await fetchSimulationState(response.data.sim_id);
       await fetchMetrics(response.data.sim_id);
+      console.log('Simulation initialized successfully');
     } catch (err) {
+      console.error('Error creating simulation:', err);
       setError(err.response?.data?.detail || err.message);
     } finally {
       setLoading(false);
@@ -44,21 +51,33 @@ function App() {
   // Fetch simulation state
   const fetchSimulationState = async (id) => {
     try {
-      const response = await axios.get(`${API_BASE}/simulation/${id || simId}/state`);
+      const simIdToUse = id || simId;
+      console.log('Fetching state for simulation:', simIdToUse);
+      const response = await axios.get(`${API_BASE}/simulation/${simIdToUse}/state`, {
+        timeout: 5000 // Shorter timeout for state fetches
+      });
+      console.log('State received:', response.data);
       setSimulationState(response.data);
     } catch (err) {
-      console.error('Error fetching state:', err);
+      console.error('Error fetching state:', err.message);
+      // Don't throw, just log - we don't want state fetch failures to stop the simulation
     }
   };
 
   // Fetch metrics
   const fetchMetrics = async (id) => {
     try {
-      const response = await axios.get(`${API_BASE}/simulation/${id || simId}/metrics`);
+      const simIdToUse = id || simId;
+      console.log('Fetching metrics for simulation:', simIdToUse);
+      const response = await axios.get(`${API_BASE}/simulation/${simIdToUse}/metrics`, {
+        timeout: 5000 // Shorter timeout for metrics fetches
+      });
+      console.log('Metrics received:', response.data.length, 'data points');
       setMetrics(response.data);
       return response.data;
     } catch (err) {
-      console.error('Error fetching metrics:', err);
+      console.error('Error fetching metrics:', err.message);
+      // Don't throw, just log
       return null;
     }
   };
@@ -68,17 +87,14 @@ function App() {
     if (!simId) return;
     
     try {
-      await axios.post(`${API_BASE}/simulation/${simId}/step`, { auto: true });
+      console.log('Executing step for simulation:', simId);
+      const response = await axios.post(`${API_BASE}/simulation/${simId}/step`, { auto: true });
+      console.log('Step response:', response.data);
       await fetchSimulationState();
-      const metricsData = await fetchMetrics();
-      
-      // Check if we've reached max steps
-      if (metricsData && metricsData.length >= maxSteps) {
-        setAutoPlay(false);
-        setShowResults(true);
-      }
+      await fetchMetrics();
     } catch (err) {
       console.error('Error executing step:', err);
+      setError(err.response?.data?.detail || err.message);
     }
   };
 
@@ -97,20 +113,62 @@ function App() {
   // Auto-play functionality
   useEffect(() => {
     if (autoPlay && simId) {
-      autoPlayInterval.current = setInterval(() => {
-        executeStep();
-      }, speed); // Use dynamic speed
+      console.log('Starting auto-play with speed:', speed);
+      
+      let isRunning = true;
+      
+      const runStep = async () => {
+        if (!isRunning) return;
+        
+        try {
+          console.log('Auto-play executing step...');
+          const stepResponse = await axios.post(
+            `${API_BASE}/simulation/${simId}/step`, 
+            { auto: true },
+            { timeout: 10000 } // 10 second timeout
+          );
+          console.log('Step completed:', stepResponse.data);
+          
+          if (isRunning) {
+            await fetchSimulationState(simId);
+            await fetchMetrics(simId);
+          }
+        } catch (err) {
+          console.error('Error in auto-play:', err);
+          
+          // Check if it's a network timeout or connection error
+          if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
+            console.warn('Network timeout, continuing...');
+            // Don't stop auto-play on timeout, just log and continue
+            setError(null); // Clear any previous errors
+          } else {
+            console.error('Error details:', err.response?.data);
+            setError(`Step error: ${err.response?.data?.detail || err.message}`);
+            setAutoPlay(false); // Stop on real error
+          }
+        }
+      };
+      
+      // Execute first step immediately
+      runStep();
+      
+      // Then set up interval for subsequent steps
+      autoPlayInterval.current = setInterval(runStep, speed);
+      
+      return () => {
+        isRunning = false;
+        if (autoPlayInterval.current) {
+          clearInterval(autoPlayInterval.current);
+          autoPlayInterval.current = null;
+        }
+      };
     } else {
       if (autoPlayInterval.current) {
+        console.log('Stopping auto-play');
         clearInterval(autoPlayInterval.current);
+        autoPlayInterval.current = null;
       }
     }
-
-    return () => {
-      if (autoPlayInterval.current) {
-        clearInterval(autoPlayInterval.current);
-      }
-    };
   }, [autoPlay, simId, speed]); // Add speed to dependencies
 
   // Reset simulation
@@ -158,9 +216,9 @@ function App() {
                 onShowResults={() => setShowResults(true)}
                 speed={speed}
                 disabled={loading}
-                currentStep={state?.step || 0}
-                currentEpisode={state?.episode || 0}
-                maxEpisodes={200}
+                currentStep={simulationState?.step || 0}
+                currentEpisode={simulationState?.episode || 0}
+                maxEpisodes={100}
               />
               
               <DisruptionPanel

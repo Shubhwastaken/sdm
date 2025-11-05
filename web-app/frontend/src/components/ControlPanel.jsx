@@ -15,13 +15,13 @@ function ControlPanel({
   disabled,
   currentStep = 0,
   currentEpisode = 0,
-  maxEpisodes = 200
+  maxEpisodes = 100
 }) {
   // Calculate progress
   const episodeProgress = Math.min((currentEpisode / maxEpisodes) * 100, 100);
   const isComplete = currentEpisode >= maxEpisodes;
 
-  // Auto-stop when 200 episodes reached
+  // Auto-stop when max episodes reached
   useEffect(() => {
     if (isComplete && isPlaying) {
       console.log(`🎉 Training Complete! ${maxEpisodes} episodes reached.`);

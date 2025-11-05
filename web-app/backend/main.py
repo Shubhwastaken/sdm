@@ -7,6 +7,13 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
+# Force reload of agent modules to pick up changes
+import importlib
+if 'agents.mdp_agent' in sys.modules:
+    importlib.reload(sys.modules['agents.mdp_agent'])
+if 'agents.rl_agent' in sys.modules:
+    importlib.reload(sys.modules['agents.rl_agent'])
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
